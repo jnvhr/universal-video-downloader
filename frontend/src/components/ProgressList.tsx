@@ -28,7 +28,7 @@ function ProgressItem({ task }: ProgressItemProps) {
     if (task.formatId) query.append('formatId', task.formatId);
     if (task.audioOnly) query.append('audioOnly', 'true');
 
-    const sseUrl = `http://localhost:3001/api/download?${query.toString()}`;
+    const sseUrl = `/api/download?${query.toString()}`;
     const source = new EventSource(sseUrl);
 
     source.addEventListener('progress', (e) => {

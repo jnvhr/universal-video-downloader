@@ -19,7 +19,7 @@ export function DownloaderForm({ onInfoFetched }: DownloaderFormProps) {
     setError('');
 
     try {
-      const res = await fetch('http://localhost:3001/api/info', {
+      const res = await fetch('/api/info', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ url })
