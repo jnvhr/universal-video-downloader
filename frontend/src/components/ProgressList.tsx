@@ -25,6 +25,7 @@ function ProgressItem({ task }: ProgressItemProps) {
     // Construct URL for SSE
     const query = new URLSearchParams();
     query.append('url', task.url);
+    query.append('taskId', task.id);
     if (task.formatId) query.append('formatId', task.formatId);
     if (task.audioOnly) query.append('audioOnly', 'true');
 
@@ -41,9 +42,24 @@ function ProgressItem({ task }: ProgressItemProps) {
       } catch (err) {}
     });
 
-    source.addEventListener('complete', () => {
+    source.addEventListener('complete', (e) => {
       setStatus('completed');
       setProgress(100);
+      try {
+        const data = JSON.parse((e as MessageEvent).data);
+        if (data.fileId) {
+          // Trigger browser download
+          const downloadUrl = `/api/file/${encodeURIComponent(data.fileId)}?title=${encodeURIComponent(task.title)}`;
+          const a = document.createElement('a');
+          a.href = downloadUrl;
+          a.download = ''; // Force download
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+        }
+      } catch (err) {
+        console.error('Failed to parse complete event data', err);
+      }
       source.close();
     });
 

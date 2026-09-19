@@ -75,10 +75,10 @@ app.post('/api/info', (req, res) => {
 });
 
 app.get('/api/download', (req, res) => {
-  const { url, formatId, audioOnly } = req.query;
+  const { url, formatId, audioOnly, taskId } = req.query;
 
-  if (!url) {
-    return res.status(400).send('URL is required');
+  if (!url || !taskId) {
+    return res.status(400).send('URL and taskId are required');
   }
 
   // Setup Server-Sent Events (SSE)
@@ -93,29 +93,29 @@ app.get('/api/download', (req, res) => {
   };
 
   let ytArgs = [];
+  // Use taskId to uniquely identify the downloaded file
+  const outputPath = path.join(DOWNLOADS_DIR, `${taskId}.%(ext)s`);
+  
   if (audioOnly === 'true') {
     ytArgs = [
       '--extract-audio',
       '--audio-format', 'mp3',
       '--audio-quality', '0',
-      '-o', path.join(DOWNLOADS_DIR, '%(title)s.%(ext)s'),
+      '-o', outputPath,
       url
     ];
   } else {
-    // If formatId is provided, use it, otherwise best
     const formatSelection = formatId ? `${formatId}+bestaudio/best` : 'bestvideo+bestaudio/best';
     ytArgs = [
       '-f', formatSelection,
       '--merge-output-format', 'mp4',
-      '-o', path.join(DOWNLOADS_DIR, '%(title)s.%(ext)s'),
+      '-o', outputPath,
       url
     ];
   }
 
   const ytDlp = spawn('yt-dlp', ytArgs);
 
-  // Parse yt-dlp progress output
-  // Example output: [download]  23.4% of ~45.34MiB at    3.52MiB/s ETA 00:09
   ytDlp.stdout.on('data', (data) => {
     const lines = data.toString().split('\n');
     for (const line of lines) {
@@ -141,17 +141,54 @@ app.get('/api/download', (req, res) => {
 
   ytDlp.on('close', (code) => {
     if (code === 0) {
-      sendEvent('complete', { status: 'success' });
+      // Find the downloaded file
+      const files = fs.readdirSync(DOWNLOADS_DIR);
+      const downloadedFile = files.find(f => f.startsWith(`${taskId}.`));
+      
+      if (downloadedFile) {
+        sendEvent('complete', { status: 'success', fileId: downloadedFile });
+      } else {
+        sendEvent('error', { error: 'File not found after download' });
+      }
     } else {
       sendEvent('error', { error: 'Download failed' });
     }
     res.end();
   });
 
-  // If client closes connection
   req.on('close', () => {
     ytDlp.kill();
   });
+});
+
+app.get('/api/file/:fileId', (req, res) => {
+  const fileId = req.params.fileId;
+  const title = req.query.title || 'video';
+  
+  // Basic security check to prevent directory traversal
+  if (fileId.includes('/') || fileId.includes('..')) {
+    return res.status(400).send('Invalid file ID');
+  }
+
+  const filePath = path.join(DOWNLOADS_DIR, fileId);
+  const ext = path.extname(fileId);
+  // Sanitize title for content-disposition header
+  const safeTitle = title.replace(/[^a-zA-Z0-9-_\s]/g, '');
+
+  if (fs.existsSync(filePath)) {
+    res.download(filePath, `${safeTitle}${ext}`, (err) => {
+      // Delete file after download finishes to save disk space
+      try {
+        if (fs.existsSync(filePath)) {
+          fs.unlinkSync(filePath);
+        }
+      } catch (e) {
+        console.error('Failed to delete file:', e);
+      }
+    });
+  } else {
+    res.status(404).send('File not found');
+  }
 });
 
 // Serve static frontend in production
