@@ -1,5 +1,5 @@
-import React, { useEffect, useState } from 'react';
-import { Film, Music, CheckCircle2, XCircle, Loader2 } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { Film, Music, CheckCircle2, XCircle } from 'lucide-react';
 import { cn } from '../utils/cn';
 
 export interface DownloadTask {
@@ -34,7 +34,7 @@ function ProgressItem({ task }: ProgressItemProps) {
     source.addEventListener('progress', (e) => {
       setStatus('downloading');
       try {
-        const data = JSON.parse(e.data);
+        const data = JSON.parse((e as MessageEvent).data);
         if (data.percent) setProgress(data.percent);
         if (data.speed) setSpeed(data.speed);
         if (data.eta) setEta(data.eta);
@@ -51,7 +51,7 @@ function ProgressItem({ task }: ProgressItemProps) {
       if (status !== 'completed') {
         setStatus('error');
         try {
-          const data = JSON.parse(e.data);
+          const data = JSON.parse((e as MessageEvent).data);
           setErrorMsg(data.error || 'Download failed');
         } catch {
           setErrorMsg('Connection error');

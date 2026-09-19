@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { Download, Music, Video, ChevronDown, Check } from 'lucide-react';
 import { cn } from '../utils/cn';
 

@@ -1,8 +1,8 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { DownloadCloud } from 'lucide-react';
 import { DownloaderForm } from './components/DownloaderForm';
 import { VideoInfoCard } from './components/VideoInfoCard';
-import { ProgressList, DownloadTask } from './components/ProgressList';
+import { ProgressList, type DownloadTask } from './components/ProgressList';
 
 function App() {
   const [videoInfo, setVideoInfo] = useState<any | null>(null);

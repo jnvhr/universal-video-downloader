@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState, type FormEvent } from 'react';
 import { ArrowRight, Loader2, Link } from 'lucide-react';
 import { cn } from '../utils/cn';
 
@@ -11,7 +11,7 @@ export function DownloaderForm({ onInfoFetched }: DownloaderFormProps) {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     if (!url.trim()) return;
 
