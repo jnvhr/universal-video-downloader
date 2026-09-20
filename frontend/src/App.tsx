@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { DownloadCloud, Sparkles } from 'lucide-react';
+import { DownloadCloud } from 'lucide-react';
 import { DownloaderForm } from './components/DownloaderForm';
 import { VideoInfoCard } from './components/VideoInfoCard';
 import { ProgressList, type DownloadTask } from './components/ProgressList';
@@ -40,13 +40,6 @@ function App() {
             <div className="w-14 h-14 rounded-[14px] bg-[#0d121f] flex items-center justify-center">
               <DownloadCloud className="w-7 h-7 text-rose-400" />
             </div>
-          </div>
-          
-          <div className="flex items-center justify-center gap-2 mb-2">
-            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-semibold tracking-wider uppercase bg-rose-500/10 border border-rose-500/25 text-rose-400">
-              <Sparkles className="w-3 h-3" />
-              Tokyo Midnight
-            </span>
           </div>
 
           <h1 className="text-[40px] sm:text-5xl font-extrabold tracking-tight text-white mb-3">
