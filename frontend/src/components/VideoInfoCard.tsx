@@ -11,6 +11,8 @@ export interface VideoFormat {
   format_note: string;
   vcodec: boolean;
   acodec: boolean;
+  width?: number | null;
+  height?: number | null;
 }
 
 export interface VideoItem {
@@ -46,6 +48,16 @@ function VideoItemCard({ item, originalUrl, isSingle, onDownload }: VideoItemCar
   const [audioOnly, setAudioOnly] = useState<boolean>(false);
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [isThumbnailRevealed, setIsThumbnailRevealed] = useState<boolean>(false);
+  const [imgRatio, setImgRatio] = useState<'landscape' | 'portrait' | 'square'>(() => {
+    const f = item.formats?.[0];
+    if (f?.width && f?.height) {
+      const r = f.width / f.height;
+      if (r < 0.85) return 'portrait';
+      if (r > 1.25) return 'landscape';
+      return 'square';
+    }
+    return 'landscape';
+  });
 
   const availableFormats = (item.formats || [])
     .filter(f => f.resolution && f.resolution !== 'audio only')
@@ -85,22 +97,50 @@ function VideoItemCard({ item, originalUrl, isSingle, onDownload }: VideoItemCar
         ? "border-rose-500/30 hover:border-rose-500/50 shadow-[0_0_30px_rgba(244,63,94,0.15)]"
         : "border-white/10 hover:border-sky-500/30"
     )}>
-      <div className="flex flex-col sm:flex-row gap-5">
-        {/* Thumbnail with Neon Cyan/Rose Border & Adult Blur Guard */}
+      <div className="flex flex-col sm:flex-row gap-5 items-start">
+        {/* Thumbnail with Dynamic Media Ratio Centering & Adult Blur Guard */}
         <div className={cn(
-          "w-full sm:w-44 aspect-video sm:aspect-[16/10] overflow-hidden rounded-xl bg-[#090d16] border relative shrink-0 group",
+          "overflow-hidden rounded-xl bg-[#070b14] border relative shrink-0 group self-start flex items-center justify-center transition-all duration-300",
+          imgRatio === 'portrait'
+            ? "w-36 sm:w-44 aspect-[9/16] max-h-72"
+            : imgRatio === 'square'
+            ? "w-40 sm:w-48 aspect-square"
+            : "w-full sm:w-60 md:w-64 aspect-video",
           item.isAdult ? "border-rose-500/30" : "border-white/10"
         )}>
           {item.thumbnail ? (
-            <img 
-              src={item.thumbnail} 
-              alt={item.title} 
-              className={cn(
-                "w-full h-full object-cover transition-all duration-300",
-                item.isAdult && !isThumbnailRevealed ? "blur-xl scale-110" : "blur-0 scale-100"
-              )}
-              loading="lazy"
-            />
+            <div className="relative w-full h-full flex items-center justify-center overflow-hidden bg-black/40">
+              {/* Blurred background backdrop so any aspect ratio fills the frame harmoniously */}
+              <img 
+                src={item.thumbnail} 
+                alt="" 
+                aria-hidden="true"
+                className={cn(
+                  "absolute inset-0 w-full h-full object-cover blur-2xl scale-125 pointer-events-none transition-opacity duration-300",
+                  item.isAdult && !isThumbnailRevealed ? "opacity-0" : "opacity-35"
+                )}
+              />
+
+              {/* Centered true-aspect media thumbnail */}
+              <img 
+                src={item.thumbnail} 
+                alt={item.title} 
+                onLoad={(e) => {
+                  const img = e.currentTarget;
+                  if (img.naturalWidth && img.naturalHeight) {
+                    const ratio = img.naturalWidth / img.naturalHeight;
+                    if (ratio < 0.85) setImgRatio('portrait');
+                    else if (ratio > 1.25) setImgRatio('landscape');
+                    else setImgRatio('square');
+                  }
+                }}
+                className={cn(
+                  "relative z-0 max-w-full max-h-full w-full h-full object-contain object-center transition-all duration-300",
+                  item.isAdult && !isThumbnailRevealed ? "blur-xl scale-110" : "blur-0 scale-100"
+                )}
+                loading="lazy"
+              />
+            </div>
           ) : (
             <div className="w-full h-full flex items-center justify-center text-slate-500">
               <Film className="w-8 h-8 opacity-40" />
@@ -149,7 +189,7 @@ function VideoItemCard({ item, originalUrl, isSingle, onDownload }: VideoItemCar
         </div>
 
         {/* Info & Options */}
-        <div className="flex-1 flex flex-col justify-between">
+        <div className="flex-1 min-w-0 w-full flex flex-col justify-between self-stretch">
           <div>
             {/* Adult & Personal Demo Badges */}
             {item.isAdult && (
