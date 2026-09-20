@@ -26,45 +26,53 @@ function App() {
   };
 
   return (
-    <div className="min-h-screen bg-mac-bg py-12 px-4 sm:px-6 lg:px-8 font-sans">
-      <div className="max-w-4xl mx-auto flex flex-col items-center">
+    <div className="min-h-screen bg-mac-bg flex flex-col font-sans">
+      <main className="flex-1 w-full max-w-3xl mx-auto px-4 sm:px-6 py-16 sm:py-24">
         
         {/* Header */}
-        <div className="text-center mb-12 animate-in fade-in slide-in-from-top-4 duration-500">
-          <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-mac-panel shadow-sm border border-mac-border mb-6">
-            <DownloadCloud className="w-8 h-8 text-mac-accent" />
+        <div className="text-center mb-10 animate-in fade-in slide-in-from-bottom-4 duration-700 ease-out fill-mode-both">
+          <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-white shadow-mac-sm border border-mac-border/50 mb-6">
+            <DownloadCloud className="w-6 h-6 text-mac-accent" />
           </div>
-          <h1 className="text-4xl font-semibold tracking-tight text-mac-text mb-3">
+          <h1 className="text-[40px] sm:text-5xl font-bold tracking-tight text-mac-text mb-4">
             Universal Downloader
           </h1>
-          <p className="text-[15px] text-mac-text-muted max-w-md mx-auto leading-relaxed">
+          <p className="text-[15px] sm:text-[17px] text-mac-text-muted max-w-lg mx-auto leading-relaxed">
             Download videos and audio from thousands of sites. Paste a link below to get started.
           </p>
         </div>
 
         {/* Main Input Form */}
-        <DownloaderForm onInfoFetched={handleInfoFetched} />
+        <div className="animate-in fade-in slide-in-from-bottom-4 duration-700 delay-150 ease-out fill-mode-both">
+          <DownloaderForm onInfoFetched={handleInfoFetched} />
+        </div>
 
         {/* Video Info Modal/Card */}
-        {videoInfo && (
-          <VideoInfoCard 
-            info={videoInfo} 
-            onDownload={handleDownload}
-            onDismiss={() => setVideoInfo(null)}
-          />
-        )}
+        <div className="mt-8">
+          {videoInfo && (
+            <VideoInfoCard 
+              info={videoInfo} 
+              onDownload={handleDownload}
+              onDismiss={() => setVideoInfo(null)}
+            />
+          )}
+        </div>
 
         {/* Progress List */}
-        <ProgressList tasks={downloads} />
+        <div className="mt-8">
+          <ProgressList tasks={downloads} />
+        </div>
 
-      </div>
+      </main>
       
       {/* Footer / Branding */}
-      <div className="fixed bottom-6 left-0 right-0 text-center">
-        <p className="text-xs text-mac-text-muted/60 font-medium">
-          Powered by yt-dlp · Built by <a href="https://github.com/jnvhr?tab=repositories" target="_blank" rel="noopener noreferrer" className="no-underline text-mac-text-muted/60 hover:text-mac-accent transition-colors">Jnvhr</a> · © {new Date().getFullYear()}
+      <footer className="py-8 text-center text-xs text-mac-text-muted font-medium">
+        <p className="inline-flex items-center gap-1.5 opacity-80 hover:opacity-100 transition-opacity">
+          Powered by yt-dlp <span className="opacity-40">•</span> Built by 
+          <a href="https://github.com/jnvhr?tab=repositories" target="_blank" rel="noopener noreferrer" className="text-mac-text hover:text-mac-accent transition-colors underline decoration-mac-border underline-offset-4">Jnvhr</a> 
+          <span className="opacity-40">•</span> © {new Date().getFullYear()}
         </p>
-      </div>
+      </footer>
     </div>
   );
 }

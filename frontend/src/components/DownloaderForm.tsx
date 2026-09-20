@@ -41,39 +41,41 @@ export function DownloaderForm({ onInfoFetched }: DownloaderFormProps) {
 
   return (
     <div className="w-full max-w-2xl mx-auto">
-      <form onSubmit={handleSubmit} className="relative group">
-        <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-          <Link className="h-5 w-5 text-mac-text-muted group-focus-within:text-mac-accent transition-colors" />
+      <form onSubmit={handleSubmit} className="relative group flex items-center">
+        <div className="absolute inset-y-0 left-0 pl-5 flex items-center pointer-events-none">
+          <Link className="h-[18px] w-[18px] text-mac-text-muted group-focus-within:text-mac-accent transition-colors duration-300" />
         </div>
         <input
           type="url"
           value={url}
           onChange={(e) => setUrl(e.target.value)}
-          placeholder="Paste a video URL (YouTube, Vimeo, etc.)"
-          className="w-full pl-12 pr-14 py-4 rounded-2xl bg-mac-panel border border-mac-border shadow-sm focus:shadow-mac focus:border-mac-accent/30 transition-all duration-300 text-[15px]"
+          placeholder="Paste a video URL (YouTube, Vimeo, X, etc.)"
+          className="w-full pl-[3.25rem] pr-16 py-4 rounded-[20px] bg-white border border-mac-border/60 shadow-mac-sm hover:shadow-mac focus:shadow-mac focus:border-mac-accent/30 transition-all duration-300 text-[16px] leading-relaxed text-mac-text placeholder:text-mac-text-muted/70"
           required
         />
         <button
           type="submit"
           disabled={isLoading || !url.trim()}
           className={cn(
-            "absolute inset-y-1.5 right-1.5 px-3 rounded-xl flex items-center justify-center transition-all duration-300",
+            "absolute right-2 px-3.5 py-2.5 rounded-xl flex items-center justify-center transition-all duration-300",
             url.trim() && !isLoading
-              ? "bg-mac-accent text-white hover:bg-mac-accent-hover shadow-sm"
-              : "bg-mac-border text-mac-text-muted"
+              ? "bg-mac-accent text-white hover:bg-mac-accent-hover shadow-sm active:scale-[0.97]"
+              : "bg-mac-bg text-mac-text-muted/50 cursor-not-allowed"
           )}
         >
           {isLoading ? (
-            <Loader2 className="h-4 w-4 animate-spin" />
+            <Loader2 className="h-4 w-4 animate-spin text-mac-accent" />
           ) : (
             <ArrowRight className="h-4 w-4" />
           )}
         </button>
       </form>
       {error && (
-        <p className="mt-3 text-sm text-red-500 text-center animate-in fade-in slide-in-from-top-2">
-          {error}
-        </p>
+        <div className="mt-4 px-4 py-3 bg-red-50 border border-red-100 rounded-xl flex items-start gap-3 animate-in fade-in slide-in-from-top-2">
+          <div className="text-red-500 text-sm mt-0.5 font-medium flex-1">
+            {error}
+          </div>
+        </div>
       )}
     </div>
   );
