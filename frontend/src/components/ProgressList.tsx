@@ -9,6 +9,7 @@ export interface DownloadTask {
   formatId: string | null;
   audioOnly: boolean;
   itemIndex?: number | null;
+  isAdult?: boolean;
 }
 
 interface ProgressItemProps {
@@ -68,14 +69,12 @@ function ProgressItem({ task }: ProgressItemProps) {
     });
 
     source.addEventListener('error', (e) => {
-      if (status !== 'completed') {
-        setStatus('error');
-        try {
-          const data = JSON.parse((e as MessageEvent).data);
-          setErrorMsg(data.error || 'Download failed');
-        } catch {
-          setErrorMsg('Connection error');
-        }
+      setStatus('error');
+      try {
+        const data = JSON.parse((e as MessageEvent).data);
+        setErrorMsg(data.error || 'Download failed');
+      } catch (err) {
+        setErrorMsg('Connection error or download failed');
       }
       source.close();
     });
@@ -86,25 +85,30 @@ function ProgressItem({ task }: ProgressItemProps) {
   }, [task]);
 
   return (
-    <div className="bg-[#111726]/85 backdrop-blur-2xl rounded-[20px] p-5 shadow-[0_10px_35px_-10px_rgba(0,0,0,0.6)] border border-white/10 flex items-center gap-5 transition-all duration-300 hover:border-sky-500/30 group">
-      <div className={cn(
-        "w-12 h-12 rounded-full flex items-center justify-center shrink-0 transition-all duration-300 border",
-        status === 'completed' ? "bg-emerald-500/15 text-emerald-400 border-emerald-500/30 shadow-[0_0_15px_rgba(16,185,129,0.3)]" :
-        status === 'error' ? "bg-rose-500/15 text-rose-400 border-rose-500/30 shadow-[0_0_15px_rgba(244,63,94,0.3)]" :
-        "bg-sky-500/15 text-sky-400 border-sky-500/30 shadow-[0_0_15px_rgba(56,189,248,0.25)] group-hover:shadow-[0_0_20px_rgba(56,189,248,0.4)]"
-      )}>
-        {status === 'completed' ? <CheckCircle2 className="w-5 h-5" /> :
-         status === 'error' ? <XCircle className="w-5 h-5" /> :
-         task.audioOnly ? <Music className="w-5 h-5" /> :
-         <Film className="w-5 h-5" />}
+    <div className="bg-[#111726]/90 backdrop-blur-xl border border-white/10 rounded-2xl p-4 sm:p-5 flex gap-4 items-center shadow-[0_8px_30px_rgb(0,0,0,0.5)] hover:border-sky-500/20 transition-all duration-300">
+      <div className="w-12 h-12 rounded-xl bg-[#090d16] border border-white/10 flex items-center justify-center shrink-0">
+        {status === 'completed' ? (
+          <CheckCircle2 className="w-6 h-6 text-emerald-400 shadow-[0_0_15px_rgba(52,211,153,0.5)]" />
+        ) : status === 'error' ? (
+          <XCircle className="w-6 h-6 text-rose-400 shadow-[0_0_15px_rgba(244,63,94,0.5)]" />
+        ) : task.audioOnly ? (
+          <Music className="w-6 h-6 text-rose-400" />
+        ) : (
+          <Film className="w-6 h-6 text-sky-400" />
+        )}
       </div>
       
       <div className="flex-1 min-w-0">
         <div className="flex justify-between items-start mb-2">
-          <h4 className="text-[15px] font-bold text-white truncate pr-4 leading-tight" title={task.title}>
-            {task.title}
+          <h4 className="text-[15px] font-bold text-white truncate pr-4 leading-tight flex items-center gap-1.5" title={task.title}>
+            <span className="truncate">{task.title}</span>
+            {task.isAdult && (
+              <span className="shrink-0 text-[10px] font-extrabold text-rose-400 bg-rose-500/15 border border-rose-500/30 px-1.5 py-0.2 rounded">
+                🔞 18+ Demo
+              </span>
+            )}
             {task.itemIndex && (
-              <span className="ml-2 text-xs font-mono font-semibold text-rose-400 bg-rose-500/10 border border-rose-500/25 px-2 py-0.5 rounded-full">
+              <span className="shrink-0 text-xs font-mono font-semibold text-rose-400 bg-rose-500/10 border border-rose-500/25 px-2 py-0.5 rounded-full">
                 #{task.itemIndex}
               </span>
             )}

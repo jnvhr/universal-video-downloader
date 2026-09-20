@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Download, Music, Video, ChevronDown, Check, Layers, Film, X } from 'lucide-react';
+import { Download, Music, Video, ChevronDown, Check, Layers, Film, X, Eye, EyeOff, Flame, AlertTriangle } from 'lucide-react';
 import { cn } from '../utils/cn';
 
 export interface VideoFormat {
@@ -19,6 +19,7 @@ export interface VideoItem {
   title: string;
   thumbnail: string | null;
   duration: number;
+  isAdult?: boolean;
   formats: VideoFormat[];
 }
 
@@ -27,6 +28,7 @@ export interface VideoInfoResponse {
   title: string;
   isMultiple: boolean;
   count: number;
+  isAdult?: boolean;
   items: VideoItem[];
   originalUrl: string;
 }
@@ -35,13 +37,14 @@ interface VideoItemCardProps {
   item: VideoItem;
   originalUrl: string;
   isSingle: boolean;
-  onDownload: (url: string, formatId: string | null, audioOnly: boolean, title: string, itemIndex?: number | null) => void;
+  onDownload: (url: string, formatId: string | null, audioOnly: boolean, title: string, itemIndex?: number | null, isAdult?: boolean) => void;
 }
 
 function VideoItemCard({ item, originalUrl, isSingle, onDownload }: VideoItemCardProps) {
   const [selectedFormat, setSelectedFormat] = useState<string>('best');
   const [audioOnly, setAudioOnly] = useState<boolean>(false);
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  const [isThumbnailRevealed, setIsThumbnailRevealed] = useState<boolean>(false);
 
   const availableFormats = (item.formats || [])
     .filter(f => f.resolution && f.resolution !== 'audio only')
@@ -69,20 +72,32 @@ function VideoItemCard({ item, originalUrl, isSingle, onDownload }: VideoItemCar
       selectedFormat === 'best' ? null : selectedFormat,
       audioOnly,
       item.title,
-      isSingle ? null : item.itemIndex
+      isSingle ? null : item.itemIndex,
+      item.isAdult
     );
   };
 
   return (
-    <div className="bg-[#111726]/85 backdrop-blur-2xl rounded-2xl p-5 shadow-[0_12px_40px_-10px_rgba(0,0,0,0.7)] border border-white/10 hover:border-sky-500/30 transition-all duration-300">
+    <div className={cn(
+      "bg-[#111726]/85 backdrop-blur-2xl rounded-2xl p-5 shadow-[0_12px_40px_-10px_rgba(0,0,0,0.7)] border transition-all duration-300",
+      item.isAdult 
+        ? "border-rose-500/30 hover:border-rose-500/50 shadow-[0_0_30px_rgba(244,63,94,0.15)]"
+        : "border-white/10 hover:border-sky-500/30"
+    )}>
       <div className="flex flex-col sm:flex-row gap-5">
-        {/* Thumbnail with Neon Cyan Border */}
-        <div className="w-full sm:w-44 aspect-video sm:aspect-[16/10] overflow-hidden rounded-xl bg-[#090d16] border border-white/10 relative shrink-0">
+        {/* Thumbnail with Neon Cyan/Rose Border & Adult Blur Guard */}
+        <div className={cn(
+          "w-full sm:w-44 aspect-video sm:aspect-[16/10] overflow-hidden rounded-xl bg-[#090d16] border relative shrink-0 group",
+          item.isAdult ? "border-rose-500/30" : "border-white/10"
+        )}>
           {item.thumbnail ? (
             <img 
               src={item.thumbnail} 
               alt={item.title} 
-              className="w-full h-full object-cover"
+              className={cn(
+                "w-full h-full object-cover transition-all duration-300",
+                item.isAdult && !isThumbnailRevealed ? "blur-xl scale-110" : "blur-0 scale-100"
+              )}
               loading="lazy"
             />
           ) : (
@@ -91,14 +106,42 @@ function VideoItemCard({ item, originalUrl, isSingle, onDownload }: VideoItemCar
             </div>
           )}
 
+          {/* 18+ Blur Overlay Guard */}
+          {item.isAdult && !isThumbnailRevealed && item.thumbnail && (
+            <button
+              type="button"
+              onClick={() => setIsThumbnailRevealed(true)}
+              className="absolute inset-0 bg-black/70 backdrop-blur-sm flex flex-col items-center justify-center p-2 text-center text-white cursor-pointer hover:bg-black/60 transition-colors z-10"
+              title="Click to reveal thumbnail (Viewer Discretion)"
+            >
+              <Eye className="w-5 h-5 text-rose-400 mb-1" />
+              <span className="text-[10px] font-extrabold text-rose-300 uppercase tracking-wider">
+                18+ Preview Hidden
+              </span>
+              <span className="text-[9px] text-slate-300 mt-0.5">Click to reveal</span>
+            </button>
+          )}
+
+          {/* Toggle button to re-hide preview if revealed */}
+          {item.isAdult && isThumbnailRevealed && (
+            <button
+              type="button"
+              onClick={() => setIsThumbnailRevealed(false)}
+              className="absolute top-2 right-2 z-10 bg-black/80 hover:bg-black text-rose-400 p-1.5 rounded-md border border-white/10 transition-colors cursor-pointer"
+              title="Hide adult thumbnail preview"
+            >
+              <EyeOff className="w-3.5 h-3.5" />
+            </button>
+          )}
+
           {item.duration > 0 && (
-            <span className="absolute bottom-2 right-2 bg-black/80 backdrop-blur-md text-sky-400 font-mono text-[11px] font-medium px-1.5 py-0.5 rounded-md border border-white/10">
+            <span className="absolute bottom-2 right-2 z-10 bg-black/80 backdrop-blur-md text-sky-400 font-mono text-[11px] font-medium px-1.5 py-0.5 rounded-md border border-white/10">
               {formatDuration(item.duration)}
             </span>
           )}
 
           {!isSingle && (
-            <span className="absolute top-2 left-2 bg-rose-500/80 backdrop-blur-md text-white text-[11px] font-bold px-2 py-0.5 rounded-md shadow-[0_0_10px_rgba(244,63,94,0.4)]">
+            <span className="absolute top-2 left-2 z-10 bg-rose-500/80 backdrop-blur-md text-white text-[11px] font-bold px-2 py-0.5 rounded-md shadow-[0_0_10px_rgba(244,63,94,0.4)]">
               #{item.itemIndex}
             </span>
           )}
@@ -107,6 +150,19 @@ function VideoItemCard({ item, originalUrl, isSingle, onDownload }: VideoItemCar
         {/* Info & Options */}
         <div className="flex-1 flex flex-col justify-between">
           <div>
+            {/* Adult & Personal Demo Badges */}
+            {item.isAdult && (
+              <div className="flex flex-wrap items-center gap-1.5 mb-2">
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-rose-500/20 border border-rose-500/40 text-rose-400 text-[10px] font-extrabold uppercase tracking-wider shadow-[0_0_10px_rgba(244,63,94,0.25)]">
+                  <Flame className="w-3 h-3 text-rose-400" />
+                  18+ Adult Content
+                </span>
+                <span className="inline-flex items-center px-2 py-0.5 rounded-md bg-white/5 border border-white/10 text-slate-300 text-[10px] font-semibold">
+                  Personal Demo Test
+                </span>
+              </div>
+            )}
+
             <div className="flex items-start justify-between gap-2">
               <h4 className="text-[16px] font-bold text-white leading-snug line-clamp-2" title={item.title}>
                 {item.title}
@@ -210,6 +266,16 @@ function VideoItemCard({ item, originalUrl, isSingle, onDownload }: VideoItemCar
               <Download className="w-3.5 h-3.5" />
               Download {audioOnly ? 'Audio (MP3)' : (isSingle ? 'Video' : `Video #${item.itemIndex}`)}
             </button>
+
+            {/* Viewer Discretion Notice within Card */}
+            {item.isAdult && (
+              <div className="flex items-start gap-2 p-2.5 rounded-lg bg-rose-500/10 border border-rose-500/20 text-rose-300 text-[11px] leading-relaxed">
+                <AlertTriangle className="w-3.5 h-3.5 text-rose-400 shrink-0 mt-0.5" />
+                <span>
+                  <strong>Viewer Discretion:</strong> 18+ media classification. Allowed strictly under personal demo and testing guidelines.
+                </span>
+              </div>
+            )}
           </div>
         </div>
       </div>
@@ -219,7 +285,7 @@ function VideoItemCard({ item, originalUrl, isSingle, onDownload }: VideoItemCar
 
 interface VideoInfoCardProps {
   info: VideoInfoResponse;
-  onDownload: (url: string, formatId: string | null, audioOnly: boolean, title: string, itemIndex?: number | null) => void;
+  onDownload: (url: string, formatId: string | null, audioOnly: boolean, title: string, itemIndex?: number | null, isAdult?: boolean) => void;
   onDismiss: () => void;
 }
 
@@ -228,13 +294,25 @@ export function VideoInfoCard({ info, onDownload, onDismiss }: VideoInfoCardProp
 
   const handleDownloadAll = () => {
     info.items.forEach(item => {
-      onDownload(info.originalUrl, null, false, item.title, item.itemIndex);
+      onDownload(info.originalUrl, null, false, item.title, item.itemIndex, item.isAdult || info.isAdult);
     });
     onDismiss();
   };
 
   return (
     <div className="w-full max-w-2xl mx-auto mt-8 animate-in fade-in zoom-in-95 duration-300">
+      {/* 18+ Discretion & Personal Demo Banner */}
+      {info.isAdult && (
+        <div className="mb-3 px-3.5 py-2.5 rounded-xl bg-gradient-to-r from-rose-950/50 via-[#111726] to-[#111726] border border-rose-500/30 flex items-center justify-between text-xs text-rose-300 shadow-[0_0_20px_rgba(244,63,94,0.15)]">
+          <div className="flex items-center gap-2">
+            <Flame className="w-4 h-4 text-rose-400 shrink-0 animate-pulse" />
+            <span>
+              <strong>Viewer Discretion Active:</strong> 18+ adult source detected. Operating in <strong>Personal Demo & Test Mode</strong>.
+            </span>
+          </div>
+        </div>
+      )}
+
       {/* Top Banner when multiple videos exist */}
       <div className="flex items-center justify-between mb-4 px-1">
         <div className="flex items-center gap-2">

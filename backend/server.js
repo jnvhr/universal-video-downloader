@@ -20,14 +20,17 @@ if (!fs.existsSync(DOWNLOADS_DIR)) {
   fs.mkdirSync(DOWNLOADS_DIR);
 }
 
+// Regular expression matching known adult / 18+ domains
+const ADULT_DOMAINS = /pornhub|xvideos|xnxx|redtube|youporn|xhamster|spankbang|chaturbate|stripchat|onlyfans|fansly|rule34|e-hentai|nhentai|hentaihaven|brazzers|eporner|hqporner|tube8|beeg|tnaflix|drtuber|thumbzilla/i;
+
 app.post('/api/info', (req, res) => {
   const { url } = req.body;
   if (!url) {
     return res.status(400).json({ error: 'URL is required' });
   }
 
-  // Use yt-dlp to dump JSON info with no warnings
-  const ytDlp = spawn('yt-dlp', ['-J', '--no-warnings', url]);
+  // Use yt-dlp to dump JSON info with no warnings, no-update, and geo-bypass
+  const ytDlp = spawn('yt-dlp', ['-J', '--no-warnings', '--no-update', '--geo-bypass', url]);
 
   let stdoutData = '';
   let stderrData = '';
@@ -49,12 +52,33 @@ app.post('/api/info', (req, res) => {
     try {
       const info = JSON.parse(stdoutData);
 
+      // Check if URL or metadata denotes 18+ content
+      const isAdultUrl = ADULT_DOMAINS.test(url);
+      const isAdultByMeta = Boolean(
+        (info.age_limit && info.age_limit >= 18) ||
+        (Array.isArray(info.categories) && info.categories.some(c => /adult|porn|nsfw|erotic|18\+/i.test(c))) ||
+        (Array.isArray(info.tags) && info.tags.some(t => /porn|nsfw|18\+|hentai|sex|adult/i.test(t))) ||
+        (info.extractor && ADULT_DOMAINS.test(info.extractor)) ||
+        (info.webpage_url && ADULT_DOMAINS.test(info.webpage_url))
+      );
+      const isAdult = isAdultUrl || isAdultByMeta;
+
       const parseItem = (item, index) => {
         const rawFormats = item.formats || [];
-        // Include formats that have video or are standard mp4/webm
-        const formats = rawFormats.filter(f => 
-          (f.ext === 'mp4' || f.ext === 'webm') && (f.vcodec !== 'none' || !f.vcodec)
+        // Include formats that have video or are playable/downloadable streams
+        let formats = rawFormats.filter(f => 
+          (f.ext === 'mp4' || f.ext === 'webm' || f.ext === 'm3u8' || f.protocol?.includes('m3u8') || f.protocol?.includes('http')) && 
+          (f.vcodec !== 'none' || !f.vcodec) &&
+          f.resolution !== 'audio only'
         );
+
+        // Fallback: if formats filtered out everything, keep all non-audio-only streams
+        if (formats.length === 0 && rawFormats.length > 0) {
+          formats = rawFormats.filter(f => f.resolution !== 'audio only' && f.vcodec !== 'none');
+        }
+        if (formats.length === 0 && rawFormats.length > 0) {
+          formats = rawFormats;
+        }
 
         // Extract best available thumbnail
         let thumb = item.thumbnail || null;
@@ -62,22 +86,42 @@ app.post('/api/info', (req, res) => {
           thumb = item.thumbnails[item.thumbnails.length - 1].url;
         }
 
+        // Deduplicate formats by resolution label to keep UI clean and sorted by height/bitrate
+        const seenResolutions = new Set();
+        const mappedFormats = formats
+          .map(f => {
+            const resLabel = f.resolution || (f.height ? `${f.height}p` : (f.width && f.height ? `${f.width}x${f.height}` : (f.format_note || 'Standard')));
+            const height = f.height || parseInt(resLabel) || 0;
+            return {
+              format_id: f.format_id,
+              ext: f.ext === 'm3u8' ? 'mp4' : (f.ext || 'mp4'),
+              resolution: resLabel,
+              height,
+              fps: f.fps || null,
+              filesize: f.filesize || f.filesize_approx || null,
+              format_note: f.format_note || '',
+              vcodec: f.vcodec !== 'none',
+              acodec: f.acodec !== 'none'
+            };
+          })
+          .sort((a, b) => {
+            if (b.height !== a.height) return b.height - a.height;
+            return (b.filesize || 0) - (a.filesize || 0);
+          })
+          .filter(f => {
+            if (seenResolutions.has(f.resolution)) return false;
+            seenResolutions.add(f.resolution);
+            return true;
+          });
+
         return {
           id: item.id || String(index + 1),
           itemIndex: index + 1, // 1-based index for --playlist-items
           title: item.title || `Video ${index + 1}`,
           thumbnail: thumb,
           duration: item.duration || 0,
-          formats: formats.map(f => ({
-            format_id: f.format_id,
-            ext: f.ext,
-            resolution: f.resolution || (f.width && f.height ? `${f.width}x${f.height}` : f.format_note || 'Standard'),
-            fps: f.fps || null,
-            filesize: f.filesize || f.filesize_approx || null,
-            format_note: f.format_note || '',
-            vcodec: f.vcodec !== 'none',
-            acodec: f.acodec !== 'none'
-          })).sort((a, b) => (b.filesize || 0) - (a.filesize || 0))
+          isAdult,
+          formats: mappedFormats
         };
       };
 
@@ -93,6 +137,7 @@ app.post('/api/info', (req, res) => {
         title: info.title || 'Video',
         isMultiple: items.length > 1,
         count: items.length,
+        isAdult,
         items
       });
     } catch (e) {
@@ -120,7 +165,7 @@ app.get('/api/download', (req, res) => {
     res.write(`event: ${type}\ndata: ${JSON.stringify(data)}\n\n`);
   };
 
-  let ytArgs = ['--no-warnings'];
+  let ytArgs = ['--no-warnings', '--no-update', '--geo-bypass'];
   
   if (itemIndex) {
     ytArgs.push('--playlist-items', String(itemIndex));
@@ -138,7 +183,13 @@ app.get('/api/download', (req, res) => {
       url
     );
   } else {
-    const formatSelection = formatId ? `${formatId}+bestaudio/best` : 'bestvideo+bestaudio/best';
+    // Priority:
+    // 1. `${formatId}+bestaudio` (if video-only format)
+    // 2. `${formatId}` (if already contains audio, common on adult & mobile sites)
+    // 3. Fallback to `bestvideo+bestaudio/best`
+    const formatSelection = formatId 
+      ? `${formatId}+bestaudio/${formatId}/bestvideo+bestaudio/best` 
+      : 'bestvideo+bestaudio/best';
     ytArgs.push(
       '-f', formatSelection,
       '--merge-output-format', 'mp4',

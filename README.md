@@ -5,8 +5,9 @@ A clean, macOS-inspired web application for downloading videos and extracting au
 ## Features
 - 🎥 Download video or extract audio (MP3)
 - ⚡ Real-time download progress via Server-Sent Events (SSE)
-- 🎨 Minimalist, high-craft macOS-like UI
+- 🎨 Minimalist, high-craft Tokyo Midnight Cyber-Glass UI
 - 🚀 Universal compatibility (supports any site `yt-dlp` supports)
+- 🔞 18+ Adult Platforms (Pornhub, XVideos, etc.) supported with **Viewer Discretion Advised** consent modal and NSFW thumbnail blur protection (intended strictly for personal demo and testing evaluation)
 
 ## Requirements
 - [Node.js](https://nodejs.org/)

@@ -12,14 +12,22 @@ function App() {
     setVideoInfo(info);
   };
 
-  const handleDownload = (url: string, formatId: string | null, audioOnly: boolean, title: string, itemIndex?: number | null) => {
+  const handleDownload = (
+    url: string, 
+    formatId: string | null, 
+    audioOnly: boolean, 
+    title: string, 
+    itemIndex?: number | null,
+    isAdult?: boolean
+  ) => {
     const newTask: DownloadTask = {
       id: Date.now().toString() + Math.random().toString(36).substring(7),
       url,
       title,
       formatId,
       audioOnly,
-      itemIndex
+      itemIndex,
+      isAdult
     };
     
     setDownloads(prev => [newTask, ...prev]);
@@ -73,14 +81,17 @@ function App() {
 
       </main>
       
-      {/* Footer / Branding */}
-      <footer className="py-8 text-center text-xs text-slate-500 font-medium relative z-10">
-        <p className="inline-flex items-center gap-2 opacity-80 hover:opacity-100 transition-opacity">
+      {/* Footer / Branding & Personal Demo Disclaimer */}
+      <footer className="py-8 text-center text-xs text-slate-500 font-medium relative z-10 max-w-xl mx-auto px-4">
+        <p className="inline-flex items-center gap-2 opacity-80 hover:opacity-100 transition-opacity mb-2">
           <span>Powered by <span className="text-slate-300 font-mono">yt-dlp</span></span>
           <span className="opacity-30">•</span>
           <span>Engineered by <a href="https://github.com/jnvhr?tab=repositories" target="_blank" rel="noopener noreferrer" className="text-sky-400 hover:text-sky-300 transition-colors font-medium">Jnvhr</a></span>
           <span className="opacity-30">•</span>
           <span>© {new Date().getFullYear()}</span>
+        </p>
+        <p className="text-[11px] text-slate-500/80 leading-relaxed">
+          🔞 Personal demo & testing integration for adult (18+) platforms. Intended solely for personal evaluation under viewer discretion.
         </p>
       </footer>
     </div>
