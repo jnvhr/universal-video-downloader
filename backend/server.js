@@ -25,6 +25,168 @@ const extraPaths = ['/opt/homebrew/bin', '/opt/homebrew/sbin', '/usr/local/bin',
 const currentPath = process.env.PATH || '';
 process.env.PATH = `${extraPaths.join(':')}:${currentPath}`;
 
+// Cache for adult direct extraction to prevent redundant network fetches
+const extractionCache = new Map();
+
+function getCachedExtraction(key) {
+  const cached = extractionCache.get(key);
+  if (cached && (Date.now() - cached.timestamp < 15 * 60 * 1000)) {
+    return cached.data;
+  }
+  return null;
+}
+
+function setCachedExtraction(key, data) {
+  extractionCache.set(key, { timestamp: Date.now(), data });
+  if (extractionCache.size > 200) {
+    const oldestKey = extractionCache.keys().next().value;
+    extractionCache.delete(oldestKey);
+  }
+}
+
+// Extract viewkey from any adult URL variant (pornhub.com, pornhub.net, pornhub.org, thumbzilla.com, embed links, etc.)
+function extractPornhubViewkey(url) {
+  if (!url || typeof url !== 'string') return null;
+  const phMatch = url.match(/(?:pornhub\.(?:com|net|org|premium\.com).*?(?:viewkey=|embed\/|video\/)([\da-z]+)|thumbzilla\.com\/video\/([\da-z]+)|(?:^|[\W_])viewkey=([\da-z]+))/i);
+  return phMatch ? (phMatch[1] || phMatch[2] || phMatch[3]) : null;
+}
+
+// Direct Pornhub embed extractor that bypasses 410 Gone datacenter/cloud blocks
+async function extractPornhubDirect(viewkey) {
+  const cached = getCachedExtraction(viewkey);
+  if (cached) return cached;
+
+  const embedUrl = `https://www.pornhub.com/embed/${viewkey}`;
+  const response = await fetch(embedUrl, {
+    headers: {
+      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+      'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+      'Accept-Language': 'en-US,en;q=0.9'
+    }
+  });
+
+  if (!response.ok) {
+    throw new Error(`Pornhub embed returned HTTP ${response.status}`);
+  }
+
+  const html = await response.text();
+  const prefix = 'var flashvars = ';
+  const idx = html.indexOf(prefix);
+  if (idx === -1) {
+    throw new Error('Flashvars not found in embed page');
+  }
+
+  const start = idx + prefix.length;
+  let depth = 0;
+  let inStr = false;
+  let escape = false;
+  let end = start;
+  for (let i = start; i < html.length; i++) {
+    const c = html[i];
+    if (escape) {
+      escape = false;
+      continue;
+    }
+    if (c === '\\') {
+      escape = true;
+      continue;
+    }
+    if (c === '"') {
+      inStr = !inStr;
+      continue;
+    }
+    if (!inStr) {
+      if (c === '{') depth++;
+      else if (c === '}') {
+        depth--;
+        if (depth === 0) {
+          end = i + 1;
+          break;
+        }
+      }
+    }
+  }
+
+  const flashvars = JSON.parse(html.slice(start, end));
+  if (flashvars.video_unavailable === 'true') {
+    throw new Error('This video is unavailable or has been removed.');
+  }
+
+  const rawDefinitions = flashvars.mediaDefinitions || [];
+  let formats = [];
+
+  for (const item of rawDefinitions) {
+    if (item.remote && item.videoUrl) {
+      try {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 4000);
+        const rRes = await fetch(item.videoUrl, {
+          headers: {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+            'Referer': embedUrl
+          },
+          signal: controller.signal
+        });
+        clearTimeout(timeoutId);
+        if (rRes.ok) {
+          const rItems = await rRes.json();
+          for (const m of rItems) {
+            if (m.videoUrl) {
+              const h = parseInt(m.quality) || m.height || 480;
+              formats.push({
+                format_id: `mp4-${h}p`,
+                streamUrl: m.videoUrl,
+                ext: 'mp4',
+                resolution: `${h}p`,
+                height: h,
+                format_note: 'Direct MP4',
+                vcodec: true,
+                acodec: true
+              });
+            }
+          }
+        }
+      } catch (e) {
+        console.warn('Could not fetch remote media definition:', e.message);
+      }
+    } else if (item.videoUrl) {
+      const h = parseInt(item.quality) || item.height || 480;
+      const isHls = item.format === 'hls' || item.videoUrl.includes('.m3u8');
+      formats.push({
+        format_id: isHls ? `hls-${h}p` : `direct-${h}p`,
+        streamUrl: item.videoUrl,
+        ext: 'mp4',
+        resolution: `${h}p`,
+        height: h,
+        format_note: isHls ? 'HLS Master Stream' : 'Direct Stream',
+        vcodec: true,
+        acodec: true
+      });
+    }
+  }
+
+  // Deduplicate and sort formats by height descending
+  const seen = new Set();
+  formats = formats.filter(f => {
+    const key = `${f.resolution}-${f.ext}`;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  }).sort((a, b) => b.height - a.height);
+
+  const result = {
+    id: viewkey,
+    title: flashvars.video_title || 'Pornhub Video',
+    thumbnail: flashvars.image_url || null,
+    duration: parseInt(flashvars.video_duration) || 0,
+    isAdult: true,
+    formats
+  };
+
+  setCachedExtraction(viewkey, result);
+  return result;
+}
+
 // Regular expression matching known adult / 18+ domains
 const ADULT_DOMAINS = /pornhub|xvideos|xnxx|redtube|youporn|xhamster|spankbang|chaturbate|stripchat|onlyfans|fansly|rule34|e-hentai|nhentai|hentaihaven|brazzers|eporner|hqporner|tube8|beeg|tnaflix|drtuber|thumbzilla/i;
 
@@ -35,7 +197,6 @@ function getExtractionUrls(targetUrl) {
     const phMatch = targetUrl.match(/(?:viewkey=|embed\/|video\/)([\da-z]+)/i);
     if (phMatch) {
       const viewkey = phMatch[1];
-      // Thumbzilla is Pornhub's mobile mirror which uses the exact same CDN and IDs but bypasses US state/datacenter 410 blocks
       urls.push(`https://www.thumbzilla.com/video/${viewkey}`);
       urls.push(`https://www.pornhub.net/view_video.php?viewkey=${viewkey}`);
     }
@@ -97,6 +258,38 @@ app.post('/api/info', async (req, res) => {
   }
 
   const cleanUrl = url.trim();
+  const phViewkey = extractPornhubViewkey(cleanUrl);
+
+  // 1. If it is a Pornhub URL, try direct embed extraction first to bypass 410 Gone datacenter restrictions
+  if (phViewkey) {
+    try {
+      console.log(`Attempting direct embed extraction for viewkey: ${phViewkey}...`);
+      const directData = await extractPornhubDirect(phViewkey);
+      if (directData && directData.formats && directData.formats.length > 0) {
+        return res.json({
+          id: directData.id,
+          title: directData.title,
+          isMultiple: false,
+          count: 1,
+          isAdult: true,
+          resolvedUrl: cleanUrl,
+          items: [{
+            id: directData.id,
+            itemIndex: 1,
+            title: directData.title,
+            thumbnail: directData.thumbnail,
+            duration: directData.duration,
+            isAdult: true,
+            formats: directData.formats
+          }]
+        });
+      }
+    } catch (directErr) {
+      console.warn(`Direct embed extraction failed for ${phViewkey}: ${directErr.message}. Falling back to yt-dlp...`);
+    }
+  }
+
+  // 2. Standard extraction via yt-dlp (for YouTube, Vimeo, Twitter, Spankbang, XVideos, etc.)
   const urlsToTry = getExtractionUrls(cleanUrl);
 
   let info = null;
@@ -219,7 +412,7 @@ app.post('/api/info', async (req, res) => {
   });
 
 
-app.get('/api/download', (req, res) => {
+app.get('/api/download', async (req, res) => {
   const { url, formatId, audioOnly, taskId, itemIndex } = req.query;
 
   if (!url || !taskId) {
@@ -237,12 +430,23 @@ app.get('/api/download', (req, res) => {
     res.write(`event: ${type}\ndata: ${JSON.stringify(data)}\n\n`);
   };
 
-  // Resolve download URL to avoid 410 blocks on cloud servers (e.g. Render/AWS)
   let downloadTargetUrl = String(url).trim();
-  if (/pornhub\.(com|org)/i.test(downloadTargetUrl)) {
-    const phMatch = downloadTargetUrl.match(/(?:viewkey=|embed\/|video\/)([\da-z]+)/i);
-    if (phMatch) {
-      downloadTargetUrl = `https://www.thumbzilla.com/video/${phMatch[1]}`;
+  let isDirectCdnStream = false;
+
+  // If it is a PornHub or adult mirror URL, resolve to direct CDN stream to bypass datacenter 410 blocks
+  const phViewkey = extractPornhubViewkey(downloadTargetUrl);
+  if (phViewkey) {
+    try {
+      const directData = await extractPornhubDirect(phViewkey);
+      if (directData && directData.formats && directData.formats.length > 0) {
+        const chosen = directData.formats.find(f => f.format_id === formatId) || directData.formats[0];
+        if (chosen && chosen.streamUrl) {
+          downloadTargetUrl = chosen.streamUrl;
+          isDirectCdnStream = true;
+        }
+      }
+    } catch (e) {
+      console.warn('Failed to resolve direct CDN stream for download, falling back:', e.message);
     }
   }
 
@@ -253,8 +457,13 @@ app.get('/api/download', (req, res) => {
     '--no-check-certificates',
     '--socket-timeout', '60'
   ];
+
+  if (isDirectCdnStream) {
+    // Provide referer so phncdn CDN serves video segments without 403/404
+    ytArgs.push('--referer', 'https://www.pornhub.com/');
+  }
   
-  if (itemIndex) {
+  if (itemIndex && !isDirectCdnStream) {
     ytArgs.push('--playlist-items', String(itemIndex));
   }
 
@@ -270,19 +479,26 @@ app.get('/api/download', (req, res) => {
       downloadTargetUrl
     );
   } else {
-    // Priority:
-    // 1. `${formatId}+bestaudio` (if video-only format)
-    // 2. `${formatId}` (if already contains audio, common on adult & mobile sites)
-    // 3. Fallback to `bestvideo+bestaudio/best`
-    const formatSelection = formatId 
-      ? `${formatId}+bestaudio/${formatId}/bestvideo+bestaudio/best` 
-      : 'bestvideo+bestaudio/best';
-    ytArgs.push(
-      '-f', formatSelection,
-      '--merge-output-format', 'mp4',
-      '-o', outputPath,
-      downloadTargetUrl
-    );
+    if (isDirectCdnStream) {
+      ytArgs.push(
+        '-o', outputPath,
+        downloadTargetUrl
+      );
+    } else {
+      // Priority:
+      // 1. `${formatId}+bestaudio` (if video-only format)
+      // 2. `${formatId}` (if already contains audio, common on adult & mobile sites)
+      // 3. Fallback to `bestvideo+bestaudio/best`
+      const formatSelection = formatId 
+        ? `${formatId}+bestaudio/${formatId}/bestvideo+bestaudio/best` 
+        : 'bestvideo+bestaudio/best';
+      ytArgs.push(
+        '-f', formatSelection,
+        '--merge-output-format', 'mp4',
+        '-o', outputPath,
+        downloadTargetUrl
+      );
+    }
   }
 
   const ytDlp = spawn('yt-dlp', ytArgs, { env: process.env });
