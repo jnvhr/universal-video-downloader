@@ -74,10 +74,10 @@ function VideoItemCard({ item, originalUrl, isSingle, onDownload }: VideoItemCar
   };
 
   return (
-    <div className="bg-white rounded-2xl p-5 shadow-sm border border-mac-border hover:shadow-mac transition-all duration-200">
+    <div className="bg-[#111726]/85 backdrop-blur-2xl rounded-2xl p-5 shadow-[0_12px_40px_-10px_rgba(0,0,0,0.7)] border border-white/10 hover:border-sky-500/30 transition-all duration-300">
       <div className="flex flex-col sm:flex-row gap-5">
-        {/* Thumbnail */}
-        <div className="w-full sm:w-44 aspect-video sm:aspect-[16/10] overflow-hidden rounded-xl bg-mac-bg border border-mac-border/60 relative shrink-0">
+        {/* Thumbnail with Neon Cyan Border */}
+        <div className="w-full sm:w-44 aspect-video sm:aspect-[16/10] overflow-hidden rounded-xl bg-[#090d16] border border-white/10 relative shrink-0">
           {item.thumbnail ? (
             <img 
               src={item.thumbnail} 
@@ -86,19 +86,19 @@ function VideoItemCard({ item, originalUrl, isSingle, onDownload }: VideoItemCar
               loading="lazy"
             />
           ) : (
-            <div className="w-full h-full flex items-center justify-center text-mac-text-muted">
+            <div className="w-full h-full flex items-center justify-center text-slate-500">
               <Film className="w-8 h-8 opacity-40" />
             </div>
           )}
 
           {item.duration > 0 && (
-            <span className="absolute bottom-2 right-2 bg-black/75 backdrop-blur-sm text-white text-[11px] font-medium px-1.5 py-0.5 rounded-md">
+            <span className="absolute bottom-2 right-2 bg-black/80 backdrop-blur-md text-sky-400 font-mono text-[11px] font-medium px-1.5 py-0.5 rounded-md border border-white/10">
               {formatDuration(item.duration)}
             </span>
           )}
 
           {!isSingle && (
-            <span className="absolute top-2 left-2 bg-black/75 backdrop-blur-sm text-white text-[11px] font-semibold px-2 py-0.5 rounded-md flex items-center gap-1">
+            <span className="absolute top-2 left-2 bg-rose-500/80 backdrop-blur-md text-white text-[11px] font-bold px-2 py-0.5 rounded-md shadow-[0_0_10px_rgba(244,63,94,0.4)]">
               #{item.itemIndex}
             </span>
           )}
@@ -108,12 +108,12 @@ function VideoItemCard({ item, originalUrl, isSingle, onDownload }: VideoItemCar
         <div className="flex-1 flex flex-col justify-between">
           <div>
             <div className="flex items-start justify-between gap-2">
-              <h4 className="text-[16px] font-semibold text-mac-text leading-snug line-clamp-2" title={item.title}>
+              <h4 className="text-[16px] font-bold text-white leading-snug line-clamp-2" title={item.title}>
                 {item.title}
               </h4>
             </div>
             {!isSingle && (
-              <p className="text-xs text-mac-text-muted mt-1 font-medium">
+              <p className="text-xs text-sky-400/80 mt-1 font-mono font-medium">
                 Video #{item.itemIndex} {item.duration ? `• ${formatDuration(item.duration)}` : ''}
               </p>
             )}
@@ -121,27 +121,27 @@ function VideoItemCard({ item, originalUrl, isSingle, onDownload }: VideoItemCar
 
           <div className="mt-4 flex flex-col gap-3">
             {/* Type Selector (Video / Audio) */}
-            <div className="flex p-0.5 bg-mac-bg rounded-lg border border-mac-border/50">
+            <div className="flex p-0.5 bg-[#090d16]/90 rounded-lg border border-white/10">
               <button
                 type="button"
                 onClick={() => setAudioOnly(false)}
                 className={cn(
-                  "flex-1 flex items-center justify-center gap-1.5 py-1.5 text-xs font-medium rounded-md transition-all",
-                  !audioOnly ? "bg-white shadow-sm text-mac-text" : "text-mac-text-muted hover:text-mac-text"
+                  "flex-1 flex items-center justify-center gap-1.5 py-1.5 text-xs font-semibold rounded-md transition-all cursor-pointer",
+                  !audioOnly ? "bg-white/10 text-white shadow-sm border border-white/15" : "text-slate-400 hover:text-slate-200"
                 )}
               >
-                <Video className="w-3.5 h-3.5" />
+                <Video className="w-3.5 h-3.5 text-sky-400" />
                 Video
               </button>
               <button
                 type="button"
                 onClick={() => setAudioOnly(true)}
                 className={cn(
-                  "flex-1 flex items-center justify-center gap-1.5 py-1.5 text-xs font-medium rounded-md transition-all",
-                  audioOnly ? "bg-white shadow-sm text-mac-text" : "text-mac-text-muted hover:text-mac-text"
+                  "flex-1 flex items-center justify-center gap-1.5 py-1.5 text-xs font-semibold rounded-md transition-all cursor-pointer",
+                  audioOnly ? "bg-white/10 text-white shadow-sm border border-white/15" : "text-slate-400 hover:text-slate-200"
                 )}
               >
-                <Music className="w-3.5 h-3.5" />
+                <Music className="w-3.5 h-3.5 text-rose-400" />
                 Audio (MP3)
               </button>
             </div>
@@ -152,7 +152,7 @@ function VideoItemCard({ item, originalUrl, isSingle, onDownload }: VideoItemCar
                 <button
                   type="button"
                   onClick={() => setIsDropdownOpen(!isDropdownOpen)}
-                  className="w-full flex items-center justify-between px-3 py-2 bg-mac-bg border border-mac-border/70 rounded-lg text-xs text-mac-text focus:outline-none focus:ring-2 focus:ring-mac-accent/20"
+                  className="w-full flex items-center justify-between px-3 py-2 bg-[#090d16]/90 border border-white/10 rounded-lg text-xs text-slate-200 focus:outline-none focus:border-sky-500/50 cursor-pointer"
                 >
                   <span className="truncate">
                     {selectedFormat === 'best' 
@@ -163,7 +163,7 @@ function VideoItemCard({ item, originalUrl, isSingle, onDownload }: VideoItemCar
                         })()
                     }
                   </span>
-                  <ChevronDown className="w-3.5 h-3.5 text-mac-text-muted ml-2 shrink-0" />
+                  <ChevronDown className="w-3.5 h-3.5 text-slate-400 ml-2 shrink-0" />
                 </button>
 
                 {isDropdownOpen && (
@@ -172,27 +172,27 @@ function VideoItemCard({ item, originalUrl, isSingle, onDownload }: VideoItemCar
                       className="fixed inset-0 z-20" 
                       onClick={() => setIsDropdownOpen(false)}
                     />
-                    <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-mac-border rounded-xl shadow-xl z-30 max-h-56 overflow-y-auto py-1">
+                    <div className="absolute top-full left-0 right-0 mt-1 bg-[#111726] border border-white/15 rounded-xl shadow-2xl z-30 max-h-56 overflow-y-auto py-1 backdrop-blur-xl">
                       <button
                         type="button"
                         onClick={() => { setSelectedFormat('best'); setIsDropdownOpen(false); }}
-                        className="w-full flex items-center justify-between px-3 py-2 text-xs hover:bg-mac-accent hover:text-white transition-colors"
+                        className="w-full flex items-center justify-between px-3 py-2 text-xs hover:bg-white/10 text-slate-200 transition-colors cursor-pointer"
                       >
-                        <span className="font-medium">Highest Quality (Recommended)</span>
-                        {selectedFormat === 'best' && <Check className="w-3.5 h-3.5" />}
+                        <span className="font-semibold text-white">Highest Quality (Recommended)</span>
+                        {selectedFormat === 'best' && <Check className="w-3.5 h-3.5 text-sky-400" />}
                       </button>
                       {availableFormats.map(f => (
                         <button
                           key={f.format_id}
                           type="button"
                           onClick={() => { setSelectedFormat(f.format_id); setIsDropdownOpen(false); }}
-                          className="w-full flex items-center justify-between px-3 py-2 text-xs hover:bg-mac-accent hover:text-white transition-colors group"
+                          className="w-full flex items-center justify-between px-3 py-2 text-xs hover:bg-white/10 text-slate-200 transition-colors group cursor-pointer"
                         >
                           <div className="flex flex-col items-start">
-                            <span className="font-medium">{f.resolution} • {f.ext.toUpperCase()}</span>
-                            <span className="text-[10px] text-mac-text-muted group-hover:text-white/80">{formatBytes(f.filesize)}</span>
+                            <span className="font-medium text-white">{f.resolution} • {f.ext.toUpperCase()}</span>
+                            <span className="text-[10px] text-slate-400 group-hover:text-slate-300 font-mono">{formatBytes(f.filesize)}</span>
                           </div>
-                          {selectedFormat === f.format_id && <Check className="w-3.5 h-3.5 shrink-0" />}
+                          {selectedFormat === f.format_id && <Check className="w-3.5 h-3.5 text-sky-400 shrink-0" />}
                         </button>
                       ))}
                     </div>
@@ -205,7 +205,7 @@ function VideoItemCard({ item, originalUrl, isSingle, onDownload }: VideoItemCar
             <button
               type="button"
               onClick={handleDownload}
-              className="w-full flex items-center justify-center gap-2 py-2.5 bg-mac-accent hover:bg-mac-accent-hover active:scale-[0.99] text-white text-xs font-semibold rounded-lg shadow-sm transition-all"
+              className="w-full flex items-center justify-center gap-2 py-2.5 bg-gradient-to-r from-rose-500 to-pink-600 hover:from-rose-400 hover:to-pink-500 active:scale-[0.99] text-white text-xs font-bold rounded-xl shadow-[0_0_20px_rgba(244,63,94,0.35)] transition-all cursor-pointer"
             >
               <Download className="w-3.5 h-3.5" />
               Download {audioOnly ? 'Audio (MP3)' : (isSingle ? 'Video' : `Video #${item.itemIndex}`)}
@@ -239,12 +239,12 @@ export function VideoInfoCard({ info, onDownload, onDismiss }: VideoInfoCardProp
       <div className="flex items-center justify-between mb-4 px-1">
         <div className="flex items-center gap-2">
           {isMultiple ? (
-            <div className="flex items-center gap-1.5 bg-mac-accent/10 text-mac-accent text-xs font-semibold px-2.5 py-1 rounded-full">
+            <div className="flex items-center gap-1.5 bg-rose-500/10 border border-rose-500/25 text-rose-400 text-xs font-semibold px-3 py-1 rounded-full shadow-[0_0_15px_rgba(244,63,94,0.15)]">
               <Layers className="w-3.5 h-3.5" />
               Found {info.items.length} videos in this post
             </div>
           ) : (
-            <span className="text-xs font-semibold text-mac-text-muted uppercase tracking-wider">
+            <span className="text-xs font-bold text-slate-400 uppercase tracking-wider font-mono">
               Video detected
             </span>
           )}
@@ -255,7 +255,7 @@ export function VideoInfoCard({ info, onDownload, onDismiss }: VideoInfoCardProp
             <button
               type="button"
               onClick={handleDownloadAll}
-              className="text-xs font-semibold text-mac-accent hover:text-mac-accent-hover bg-white hover:bg-mac-bg border border-mac-border px-3 py-1 rounded-full transition-colors flex items-center gap-1.5 shadow-sm"
+              className="text-xs font-bold text-white bg-gradient-to-r from-rose-500 to-pink-600 hover:from-rose-400 hover:to-pink-500 px-3.5 py-1.5 rounded-full transition-all flex items-center gap-1.5 shadow-[0_0_20px_rgba(244,63,94,0.35)] cursor-pointer active:scale-95"
             >
               <Download className="w-3.5 h-3.5" />
               Download All ({info.items.length})
@@ -264,7 +264,7 @@ export function VideoInfoCard({ info, onDownload, onDismiss }: VideoInfoCardProp
           <button
             type="button"
             onClick={onDismiss}
-            className="text-xs text-mac-text-muted hover:text-mac-text bg-mac-panel hover:bg-mac-border border border-mac-border p-1 rounded-full transition-colors"
+            className="text-xs text-slate-400 hover:text-white bg-[#111726] hover:bg-white/10 border border-white/10 p-1.5 rounded-full transition-colors cursor-pointer"
             title="Dismiss"
           >
             <X className="w-4 h-4" />

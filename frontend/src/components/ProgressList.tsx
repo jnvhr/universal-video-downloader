@@ -86,12 +86,12 @@ function ProgressItem({ task }: ProgressItemProps) {
   }, [task]);
 
   return (
-    <div className="bg-white rounded-[20px] p-5 shadow-mac-sm border border-mac-border/60 flex items-center gap-5 transition-all duration-300 hover:shadow-mac group">
+    <div className="bg-[#111726]/85 backdrop-blur-2xl rounded-[20px] p-5 shadow-[0_10px_35px_-10px_rgba(0,0,0,0.6)] border border-white/10 flex items-center gap-5 transition-all duration-300 hover:border-sky-500/30 group">
       <div className={cn(
-        "w-12 h-12 rounded-full flex items-center justify-center shrink-0 transition-colors duration-300",
-        status === 'completed' ? "bg-mac-success/10 text-mac-success" :
-        status === 'error' ? "bg-mac-danger/10 text-mac-danger" :
-        "bg-mac-accent/10 text-mac-accent group-hover:bg-mac-accent/15"
+        "w-12 h-12 rounded-full flex items-center justify-center shrink-0 transition-all duration-300 border",
+        status === 'completed' ? "bg-emerald-500/15 text-emerald-400 border-emerald-500/30 shadow-[0_0_15px_rgba(16,185,129,0.3)]" :
+        status === 'error' ? "bg-rose-500/15 text-rose-400 border-rose-500/30 shadow-[0_0_15px_rgba(244,63,94,0.3)]" :
+        "bg-sky-500/15 text-sky-400 border-sky-500/30 shadow-[0_0_15px_rgba(56,189,248,0.25)] group-hover:shadow-[0_0_20px_rgba(56,189,248,0.4)]"
       )}>
         {status === 'completed' ? <CheckCircle2 className="w-5 h-5" /> :
          status === 'error' ? <XCircle className="w-5 h-5" /> :
@@ -101,11 +101,21 @@ function ProgressItem({ task }: ProgressItemProps) {
       
       <div className="flex-1 min-w-0">
         <div className="flex justify-between items-start mb-2">
-          <h4 className="text-[15px] font-semibold text-mac-text truncate pr-4 leading-tight" title={task.title}>
+          <h4 className="text-[15px] font-bold text-white truncate pr-4 leading-tight" title={task.title}>
             {task.title}
-            {task.itemIndex && <span className="ml-2 text-xs font-medium text-mac-text-muted bg-mac-bg px-2 py-0.5 rounded-full">#{task.itemIndex}</span>}
+            {task.itemIndex && (
+              <span className="ml-2 text-xs font-mono font-semibold text-rose-400 bg-rose-500/10 border border-rose-500/25 px-2 py-0.5 rounded-full">
+                #{task.itemIndex}
+              </span>
+            )}
           </h4>
-          <span className="text-[13px] font-medium text-mac-text-muted whitespace-nowrap shrink-0 mt-0.5">
+          <span className={cn(
+            "text-[13px] font-mono font-bold whitespace-nowrap shrink-0 mt-0.5",
+            status === 'completed' ? "text-emerald-400" :
+            status === 'error' ? "text-rose-400" :
+            status === 'starting' ? "text-slate-400" :
+            "text-sky-400"
+          )}>
             {status === 'completed' ? 'Done' :
              status === 'error' ? 'Failed' :
              status === 'starting' ? 'Starting...' :
@@ -113,14 +123,14 @@ function ProgressItem({ task }: ProgressItemProps) {
           </span>
         </div>
         
-        {/* Progress Bar */}
-        <div className="h-2 w-full bg-mac-bg rounded-full overflow-hidden shadow-mac-inner border border-mac-border/30">
+        {/* Progress Bar with Glowing Cyber Gradient */}
+        <div className="h-2 w-full bg-[#090d16] rounded-full overflow-hidden border border-white/10 relative">
           <div 
             className={cn(
               "h-full transition-all duration-300 ease-out",
-              status === 'completed' ? "bg-mac-success" :
-              status === 'error' ? "bg-mac-danger" :
-              "bg-mac-accent"
+              status === 'completed' ? "bg-emerald-500 shadow-[0_0_12px_rgba(16,185,129,0.5)]" :
+              status === 'error' ? "bg-rose-500 shadow-[0_0_12px_rgba(244,63,94,0.5)]" :
+              "bg-gradient-to-r from-sky-400 via-purple-500 to-rose-500 shadow-[0_0_15px_rgba(56,189,248,0.5)]"
             )}
             style={{ width: `${Math.max(1, progress)}%` }}
           />
@@ -128,16 +138,16 @@ function ProgressItem({ task }: ProgressItemProps) {
 
         {/* Details */}
         <div className="flex justify-between mt-2.5">
-          <span className="text-xs text-mac-text-muted font-medium flex items-center gap-1.5">
-            {task.audioOnly ? 'Audio extraction' : 'Video download'}
+          <span className="text-xs text-slate-400 font-medium flex items-center gap-1.5">
+            {task.audioOnly ? 'Audio extraction (MP3)' : 'Video stream'}
           </span>
           {status === 'downloading' && (
-            <span className="text-xs text-mac-text-muted font-medium tabular-nums tracking-tight">
-              {speed} <span className="mx-1 opacity-40">•</span> {eta}
+            <span className="text-xs text-sky-400 font-mono tracking-tight">
+              {speed} <span className="mx-1 text-slate-600">•</span> {eta}
             </span>
           )}
           {status === 'error' && (
-            <span className="text-xs text-mac-danger font-medium">
+            <span className="text-xs text-rose-400 font-medium">
               {errorMsg}
             </span>
           )}
@@ -156,8 +166,9 @@ export function ProgressList({ tasks }: ProgressListProps) {
 
   return (
     <div className="w-full max-w-2xl mx-auto mt-8">
-      <h3 className="text-sm font-semibold text-mac-text-muted uppercase tracking-wider mb-3 px-1">
-        Downloads
+      <h3 className="text-xs font-mono font-bold text-slate-400 uppercase tracking-widest mb-3 px-1 flex items-center gap-2">
+        <span className="w-2 h-2 rounded-full bg-rose-500 animate-pulse"></span>
+        Downloads Queue
       </h3>
       <div className="flex flex-col gap-3">
         {tasks.map(task => (
