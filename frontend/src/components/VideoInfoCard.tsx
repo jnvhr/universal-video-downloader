@@ -29,6 +29,7 @@ export interface VideoInfoResponse {
   isMultiple: boolean;
   count: number;
   isAdult?: boolean;
+  resolvedUrl?: string;
   items: VideoItem[];
   originalUrl: string;
 }
@@ -293,8 +294,9 @@ export function VideoInfoCard({ info, onDownload, onDismiss }: VideoInfoCardProp
   const isMultiple = info.items && info.items.length > 1;
 
   const handleDownloadAll = () => {
+    const targetUrl = info.resolvedUrl || info.originalUrl;
     info.items.forEach(item => {
-      onDownload(info.originalUrl, null, false, item.title, item.itemIndex, item.isAdult || info.isAdult);
+      onDownload(targetUrl, null, false, item.title, item.itemIndex, item.isAdult || info.isAdult);
     });
     onDismiss();
   };
@@ -356,7 +358,7 @@ export function VideoInfoCard({ info, onDownload, onDismiss }: VideoInfoCardProp
           <VideoItemCard
             key={item.id || item.itemIndex}
             item={item}
-            originalUrl={info.originalUrl}
+            originalUrl={info.resolvedUrl || info.originalUrl}
             isSingle={!isMultiple}
             onDownload={onDownload}
           />
