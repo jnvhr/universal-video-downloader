@@ -51,63 +51,112 @@ function extractPornhubViewkey(url) {
   return phMatch ? (phMatch[1] || phMatch[2] || phMatch[3]) : null;
 }
 
-// Direct Pornhub embed extractor that bypasses 410 Gone datacenter/cloud blocks
+// Direct Pornhub extractor that bypasses 410 Gone datacenter/cloud blocks and derives all resolutions (1080p, 720p, 480p, 240p)
 async function extractPornhubDirect(viewkey) {
   const cached = getCachedExtraction(viewkey);
   if (cached) return cached;
 
-  const embedUrl = `https://www.pornhub.com/embed/${viewkey}`;
-  const response = await fetch(embedUrl, {
-    headers: {
-      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
-      'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-      'Accept-Language': 'en-US,en;q=0.9'
-    }
-  });
+  const browserHeaders = {
+    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+    'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+    'Accept-Language': 'en-US,en;q=0.9',
+    'Cookie': 'platform=pc; bs=1; ss=1'
+  };
 
-  if (!response.ok) {
-    throw new Error(`Pornhub embed returned HTTP ${response.status}`);
+  let flashvars = null;
+  let cookieHeader = '';
+  const pageUrl = `https://www.pornhub.com/view_video.php?viewkey=${viewkey}`;
+
+  // 1. Attempt view_video.php with browser headers (contains full official definitions for 1080p, 720p, 480p, 240p)
+  try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 3500);
+    const pageRes = await fetch(pageUrl, {
+      headers: browserHeaders,
+      signal: controller.signal
+    });
+    clearTimeout(timeoutId);
+    if (pageRes.ok) {
+      const setCookies = pageRes.headers.getSetCookie ? pageRes.headers.getSetCookie() : [];
+      const cookieMap = new Map();
+      cookieMap.set('platform', 'pc');
+      for (const sc of setCookies) {
+        const part = sc.split(';')[0];
+        const eqIdx = part.indexOf('=');
+        if (eqIdx !== -1) cookieMap.set(part.slice(0, eqIdx).trim(), part.slice(eqIdx + 1).trim());
+      }
+      cookieHeader = Array.from(cookieMap.entries()).map(([k, v]) => `${k}=${v}`).join('; ');
+
+      const html = await pageRes.text();
+      const m = html.match(/var\s+flashvars_\d+\s*=\s*({.+?});\s*\n/);
+      if (m) {
+        flashvars = JSON.parse(m[1]);
+      }
+    }
+  } catch (e) {
+    // view_video failed, timed out, or blocked by 410 on cloud datacenter IP
   }
 
-  const html = await response.text();
-  const prefix = 'var flashvars = ';
-  const idx = html.indexOf(prefix);
-  if (idx === -1) {
-    throw new Error('Flashvars not found in embed page');
-  }
+  // 2. If view_video.php failed (e.g. 410 on Render datacenter IPs), fall back to embed endpoint
+  if (!flashvars) {
+    const embedUrl = `https://www.pornhub.com/embed/${viewkey}`;
+    const response = await fetch(embedUrl, { headers: browserHeaders });
 
-  const start = idx + prefix.length;
-  let depth = 0;
-  let inStr = false;
-  let escape = false;
-  let end = start;
-  for (let i = start; i < html.length; i++) {
-    const c = html[i];
-    if (escape) {
-      escape = false;
-      continue;
+    if (!response.ok) {
+      throw new Error(`Pornhub embed returned HTTP ${response.status}`);
     }
-    if (c === '\\') {
-      escape = true;
-      continue;
+
+    const setCookies = response.headers.getSetCookie ? response.headers.getSetCookie() : [];
+    const cookieMap = new Map();
+    cookieMap.set('platform', 'pc');
+    for (const sc of setCookies) {
+      const part = sc.split(';')[0];
+      const eqIdx = part.indexOf('=');
+      if (eqIdx !== -1) cookieMap.set(part.slice(0, eqIdx).trim(), part.slice(eqIdx + 1).trim());
     }
-    if (c === '"') {
-      inStr = !inStr;
-      continue;
+    cookieHeader = Array.from(cookieMap.entries()).map(([k, v]) => `${k}=${v}`).join('; ');
+
+    const html = await response.text();
+    const prefix = 'var flashvars = ';
+    const idx = html.indexOf(prefix);
+    if (idx === -1) {
+      throw new Error('Flashvars not found in embed page');
     }
-    if (!inStr) {
-      if (c === '{') depth++;
-      else if (c === '}') {
-        depth--;
-        if (depth === 0) {
-          end = i + 1;
-          break;
+
+    const start = idx + prefix.length;
+    let depth = 0;
+    let inStr = false;
+    let escape = false;
+    let end = start;
+    for (let i = start; i < html.length; i++) {
+      const c = html[i];
+      if (escape) {
+        escape = false;
+        continue;
+      }
+      if (c === '\\') {
+        escape = true;
+        continue;
+      }
+      if (c === '"') {
+        inStr = !inStr;
+        continue;
+      }
+      if (!inStr) {
+        if (c === '{') depth++;
+        else if (c === '}') {
+          depth--;
+          if (depth === 0) {
+            end = i + 1;
+            break;
+          }
         }
       }
     }
+
+    flashvars = JSON.parse(html.slice(start, end));
   }
 
-  const flashvars = JSON.parse(html.slice(start, end));
   if (flashvars.video_unavailable === 'true') {
     throw new Error('This video is unavailable or has been removed.');
   }
@@ -115,15 +164,17 @@ async function extractPornhubDirect(viewkey) {
   const rawDefinitions = flashvars.mediaDefinitions || [];
   let formats = [];
 
+  // Fetch remote get_media with session cookies (yields direct MP4s at 1080p, 720p, 480p, 240p on ev.phncdn.com)
   for (const item of rawDefinitions) {
     if (item.remote && item.videoUrl) {
       try {
         const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 4000);
+        const timeoutId = setTimeout(() => controller.abort(), 3500);
         const rRes = await fetch(item.videoUrl, {
           headers: {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-            'Referer': embedUrl
+            'User-Agent': browserHeaders['User-Agent'],
+            'Referer': pageUrl,
+            'Cookie': cookieHeader || 'platform=pc; bs=1; ss=1'
           },
           signal: controller.signal
         });
@@ -139,7 +190,7 @@ async function extractPornhubDirect(viewkey) {
                 ext: 'mp4',
                 resolution: `${h}p`,
                 height: h,
-                format_note: 'Direct MP4',
+                format_note: h >= 1080 ? `${h}p Full HD` : h >= 720 ? `${h}p HD` : `${h}p`,
                 vcodec: true,
                 acodec: true
               });
@@ -147,25 +198,30 @@ async function extractPornhubDirect(viewkey) {
           }
         }
       } catch (e) {
-        console.warn('Could not fetch remote media definition:', e.message);
+        console.warn('remote get_media error:', e.message);
       }
-    } else if (item.videoUrl) {
-      const h = parseInt(item.quality) || item.height || 480;
-      const isHls = item.format === 'hls' || item.videoUrl.includes('.m3u8');
+    }
+  }
+
+  // If no remote formats were retrieved (or as fallback), parse direct HLS definitions
+  if (formats.length === 0) {
+    const baseHls = rawDefinitions.find(d => d.format === 'hls' && d.videoUrl);
+    if (baseHls) {
+      const h = parseInt(baseHls.quality) || baseHls.height || 480;
       formats.push({
-        format_id: isHls ? `hls-${h}p` : `direct-${h}p`,
-        streamUrl: item.videoUrl,
+        format_id: `hls-${h}p`,
+        streamUrl: baseHls.videoUrl,
         ext: 'mp4',
         resolution: `${h}p`,
         height: h,
-        format_note: isHls ? 'HLS Master Stream' : 'Direct Stream',
+        format_note: `${h}p`,
         vcodec: true,
         acodec: true
       });
     }
   }
 
-  // Deduplicate and sort formats by height descending
+  // Deduplicate and sort formats by height descending so 1080p is always first
   const seen = new Set();
   formats = formats.filter(f => {
     const key = `${f.resolution}-${f.ext}`;
