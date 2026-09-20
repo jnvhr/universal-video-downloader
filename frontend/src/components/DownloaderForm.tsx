@@ -31,7 +31,17 @@ export function DownloaderForm({ onInfoFetched }: DownloaderFormProps) {
 
       if (!res.ok) {
         const errorData = await res.json().catch(() => ({}));
-        throw new Error(errorData.error || errorData.details || 'Failed to fetch video info');
+        let message = 'Failed to fetch video info';
+        if (errorData.details && errorData.error) {
+          message = `${errorData.error}: ${errorData.details}`;
+        } else if (errorData.details || errorData.error) {
+          message = errorData.details || errorData.error;
+        } else if (res.status === 500 || res.status === 504 || res.status === 502) {
+          message = `Backend connection failed (${res.status}). Make sure the backend server is running on port 3001.`;
+        } else {
+          message = `Server returned status ${res.status}`;
+        }
+        throw new Error(message);
       }
 
       const data = await res.json();

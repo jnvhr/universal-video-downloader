@@ -20,17 +20,35 @@ if (!fs.existsSync(DOWNLOADS_DIR)) {
   fs.mkdirSync(DOWNLOADS_DIR);
 }
 
+// Ensure Homebrew and standard UNIX binary paths are included in PATH
+const extraPaths = ['/opt/homebrew/bin', '/opt/homebrew/sbin', '/usr/local/bin', '/usr/bin', '/bin'];
+const currentPath = process.env.PATH || '';
+process.env.PATH = `${extraPaths.join(':')}:${currentPath}`;
+
 // Regular expression matching known adult / 18+ domains
 const ADULT_DOMAINS = /pornhub|xvideos|xnxx|redtube|youporn|xhamster|spankbang|chaturbate|stripchat|onlyfans|fansly|rule34|e-hentai|nhentai|hentaihaven|brazzers|eporner|hqporner|tube8|beeg|tnaflix|drtuber|thumbzilla/i;
 
 app.post('/api/info', (req, res) => {
   const { url } = req.body;
-  if (!url) {
-    return res.status(400).json({ error: 'URL is required' });
+  if (!url || typeof url !== 'string' || !url.trim()) {
+    return res.status(400).json({ error: 'Valid URL is required' });
   }
 
-  // Use yt-dlp to dump JSON info with no warnings, no-update, and geo-bypass
-  const ytDlp = spawn('yt-dlp', ['-J', '--no-warnings', '--no-update', '--geo-bypass', url]);
+  const cleanUrl = url.trim();
+
+  // Use yt-dlp to dump JSON info with robust options
+  const ytArgs = [
+    '-J',
+    '--no-warnings',
+    '--no-update',
+    '--geo-bypass',
+    '--no-check-certificates',
+    '--socket-timeout', '30',
+    '--no-playlist',
+    cleanUrl
+  ];
+
+  const ytDlp = spawn('yt-dlp', ytArgs, { env: process.env });
 
   let stdoutData = '';
   let stderrData = '';
@@ -43,10 +61,24 @@ app.post('/api/info', (req, res) => {
     stderrData += data.toString();
   });
 
+  ytDlp.on('error', (err) => {
+    console.error('yt-dlp process execution error:', err);
+    if (!res.headersSent) {
+      return res.status(500).json({ 
+        error: 'Failed to start yt-dlp', 
+        details: err.message || 'Make sure yt-dlp is installed and available in system PATH.' 
+      });
+    }
+  });
+
   ytDlp.on('close', (code) => {
     if (code !== 0) {
       console.error('yt-dlp error:', stderrData);
-      return res.status(500).json({ error: 'Failed to fetch video info', details: stderrData });
+      const cleanStderr = stderrData.replace(/WARNING:.*\n?/g, '').trim();
+      return res.status(500).json({ 
+        error: 'Failed to fetch video info', 
+        details: cleanStderr || stderrData.trim() || 'yt-dlp exited with an error code.' 
+      });
     }
 
     try {
@@ -165,7 +197,13 @@ app.get('/api/download', (req, res) => {
     res.write(`event: ${type}\ndata: ${JSON.stringify(data)}\n\n`);
   };
 
-  let ytArgs = ['--no-warnings', '--no-update', '--geo-bypass'];
+  let ytArgs = [
+    '--no-warnings', 
+    '--no-update', 
+    '--geo-bypass',
+    '--no-check-certificates',
+    '--socket-timeout', '60'
+  ];
   
   if (itemIndex) {
     ytArgs.push('--playlist-items', String(itemIndex));
@@ -198,7 +236,13 @@ app.get('/api/download', (req, res) => {
     );
   }
 
-  const ytDlp = spawn('yt-dlp', ytArgs);
+  const ytDlp = spawn('yt-dlp', ytArgs, { env: process.env });
+
+  ytDlp.on('error', (err) => {
+    console.error('yt-dlp download spawn error:', err);
+    sendEvent('error', { error: `Failed to launch download: ${err.message}` });
+    res.end();
+  });
 
   ytDlp.stdout.on('data', (data) => {
     const lines = data.toString().split('\n');
