@@ -26,8 +26,8 @@ app.post('/api/info', (req, res) => {
     return res.status(400).json({ error: 'URL is required' });
   }
 
-  // Use yt-dlp to dump JSON info
-  const ytDlp = spawn('yt-dlp', ['-J', url]);
+  // Use yt-dlp to dump JSON info with no warnings
+  const ytDlp = spawn('yt-dlp', ['-J', '--no-warnings', url]);
 
   let stdoutData = '';
   let stderrData = '';
@@ -48,24 +48,52 @@ app.post('/api/info', (req, res) => {
 
     try {
       const info = JSON.parse(stdoutData);
-      // Filter out formats without video (unless we want audio only, but we'll show video formats usually)
-      const formats = (info.formats || []).filter(f => f.ext === 'mp4' || f.ext === 'webm');
-      
+
+      const parseItem = (item, index) => {
+        const rawFormats = item.formats || [];
+        // Include formats that have video or are standard mp4/webm
+        const formats = rawFormats.filter(f => 
+          (f.ext === 'mp4' || f.ext === 'webm') && (f.vcodec !== 'none' || !f.vcodec)
+        );
+
+        // Extract best available thumbnail
+        let thumb = item.thumbnail || null;
+        if (!thumb && Array.isArray(item.thumbnails) && item.thumbnails.length > 0) {
+          thumb = item.thumbnails[item.thumbnails.length - 1].url;
+        }
+
+        return {
+          id: item.id || String(index + 1),
+          itemIndex: index + 1, // 1-based index for --playlist-items
+          title: item.title || `Video ${index + 1}`,
+          thumbnail: thumb,
+          duration: item.duration || 0,
+          formats: formats.map(f => ({
+            format_id: f.format_id,
+            ext: f.ext,
+            resolution: f.resolution || (f.width && f.height ? `${f.width}x${f.height}` : f.format_note || 'Standard'),
+            fps: f.fps || null,
+            filesize: f.filesize || f.filesize_approx || null,
+            format_note: f.format_note || '',
+            vcodec: f.vcodec !== 'none',
+            acodec: f.acodec !== 'none'
+          })).sort((a, b) => (b.filesize || 0) - (a.filesize || 0))
+        };
+      };
+
+      let items = [];
+      if (Array.isArray(info.entries) && info.entries.length > 0) {
+        items = info.entries.map((entry, idx) => parseItem(entry, idx));
+      } else {
+        items = [parseItem(info, 0)];
+      }
+
       res.json({
         id: info.id,
-        title: info.title,
-        thumbnail: info.thumbnail,
-        duration: info.duration,
-        formats: formats.map(f => ({
-          format_id: f.format_id,
-          ext: f.ext,
-          resolution: f.resolution,
-          fps: f.fps,
-          filesize: f.filesize,
-          format_note: f.format_note,
-          vcodec: f.vcodec !== 'none',
-          acodec: f.acodec !== 'none'
-        })).sort((a, b) => (b.filesize || 0) - (a.filesize || 0))
+        title: info.title || 'Video',
+        isMultiple: items.length > 1,
+        count: items.length,
+        items
       });
     } catch (e) {
       console.error('JSON Parse error:', e);
@@ -75,7 +103,7 @@ app.post('/api/info', (req, res) => {
 });
 
 app.get('/api/download', (req, res) => {
-  const { url, formatId, audioOnly, taskId } = req.query;
+  const { url, formatId, audioOnly, taskId, itemIndex } = req.query;
 
   if (!url || !taskId) {
     return res.status(400).send('URL and taskId are required');
@@ -92,26 +120,31 @@ app.get('/api/download', (req, res) => {
     res.write(`event: ${type}\ndata: ${JSON.stringify(data)}\n\n`);
   };
 
-  let ytArgs = [];
+  let ytArgs = ['--no-warnings'];
+  
+  if (itemIndex) {
+    ytArgs.push('--playlist-items', String(itemIndex));
+  }
+
   // Use taskId to uniquely identify the downloaded file
   const outputPath = path.join(DOWNLOADS_DIR, `${taskId}.%(ext)s`);
   
   if (audioOnly === 'true') {
-    ytArgs = [
+    ytArgs.push(
       '--extract-audio',
       '--audio-format', 'mp3',
       '--audio-quality', '0',
       '-o', outputPath,
       url
-    ];
+    );
   } else {
     const formatSelection = formatId ? `${formatId}+bestaudio/best` : 'bestvideo+bestaudio/best';
-    ytArgs = [
+    ytArgs.push(
       '-f', formatSelection,
       '--merge-output-format', 'mp4',
       '-o', outputPath,
       url
-    ];
+    );
   }
 
   const ytDlp = spawn('yt-dlp', ytArgs);
@@ -143,7 +176,9 @@ app.get('/api/download', (req, res) => {
     if (code === 0) {
       // Find the downloaded file
       const files = fs.readdirSync(DOWNLOADS_DIR);
-      const downloadedFile = files.find(f => f.startsWith(`${taskId}.`));
+      const downloadedFile = files.find(f => 
+        f.startsWith(`${taskId}.`) && !f.endsWith('.part') && !f.endsWith('.ytdl')
+      );
       
       if (downloadedFile) {
         sendEvent('complete', { status: 'success', fileId: downloadedFile });

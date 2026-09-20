@@ -12,13 +12,14 @@ function App() {
     setVideoInfo(info);
   };
 
-  const handleDownload = (url: string, formatId: string | null, audioOnly: boolean, title: string) => {
+  const handleDownload = (url: string, formatId: string | null, audioOnly: boolean, title: string, itemIndex?: number | null) => {
     const newTask: DownloadTask = {
       id: Date.now().toString() + Math.random().toString(36).substring(7),
       url,
       title,
       formatId,
-      audioOnly
+      audioOnly,
+      itemIndex
     };
     
     setDownloads(prev => [newTask, ...prev]);

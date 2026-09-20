@@ -8,6 +8,7 @@ export interface DownloadTask {
   title: string;
   formatId: string | null;
   audioOnly: boolean;
+  itemIndex?: number | null;
 }
 
 interface ProgressItemProps {
@@ -26,6 +27,9 @@ function ProgressItem({ task }: ProgressItemProps) {
     const query = new URLSearchParams();
     query.append('url', task.url);
     query.append('taskId', task.id);
+    if (task.itemIndex !== undefined && task.itemIndex !== null) {
+      query.append('itemIndex', String(task.itemIndex));
+    }
     if (task.formatId) query.append('formatId', task.formatId);
     if (task.audioOnly) query.append('audioOnly', 'true');
 
