@@ -110,7 +110,7 @@ export function DownloaderForm({ onInfoFetched }: DownloaderFormProps) {
           type="url"
           value={url}
           onChange={(e) => setUrl(e.target.value)}
-          placeholder="Paste URL (YouTube, X, Vimeo, Pornhub [18+ Demo], etc.)"
+          placeholder="Paste video or media link here..."
           className={cn(
             "w-full pl-[3.25rem] pr-16 py-4 rounded-[20px] bg-[#111726]/80 backdrop-blur-xl border text-white placeholder:text-slate-500 shadow-[0_10px_35px_-10px_rgba(0,0,0,0.6)] transition-all duration-300 text-[16px] leading-relaxed outline-none",
             isCurrentUrlAdult
@@ -145,18 +145,6 @@ export function DownloaderForm({ onInfoFetched }: DownloaderFormProps) {
           <span>🔞 18+ Platform detected • Viewer discretion & personal demo test notice will be requested</span>
         </div>
       )}
-
-      {/* Quick Platform Support Chips */}
-      <div className="mt-3 flex flex-wrap items-center justify-center gap-2 text-[11px] text-slate-400">
-        <span className="text-slate-500">Supported:</span>
-        <span className="px-2 py-0.5 rounded-md bg-white/5 border border-white/5 text-slate-300">YouTube</span>
-        <span className="px-2 py-0.5 rounded-md bg-white/5 border border-white/5 text-slate-300">X / Twitter</span>
-        <span className="px-2 py-0.5 rounded-md bg-white/5 border border-white/5 text-slate-300">Vimeo / TikTok</span>
-        <span className="px-2 py-0.5 rounded-md bg-rose-500/10 border border-rose-500/25 text-rose-300 flex items-center gap-1 font-semibold">
-          <span>🔞 18+ Sites (Pornhub, XVideos, etc.)</span>
-          <span className="text-[10px] text-rose-400/80 font-normal">[Demo Only]</span>
-        </span>
-      </div>
 
       {error && (
         <div className="mt-4 px-4 py-3 bg-rose-500/10 border border-rose-500/25 rounded-xl flex items-start gap-3 animate-in fade-in slide-in-from-top-2">
